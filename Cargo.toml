@@ -1,0 +1,9 @@
+[package]
+name = "project"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lyon_geom = "1"
+handtrack-rs = "0.1"
+nannou = "0.18"
