@@ -1,10 +1,10 @@
 mod utils;
 
-use nannou::prelude::*;
+use nannou::{noise::BasicMulti, prelude::*};
 use utils::bezier::BezierCurve;
 
 struct Model {
-    initial_state: f32,
+    noise: BasicMulti,
 }
 
 fn main() {
@@ -12,7 +12,9 @@ fn main() {
 }
 
 fn model(_app: &App) -> Model {
-    Model { initial_state: 0.0 }
+    Model {
+        noise: BasicMulti::new(),
+    }
 }
 
 fn update(_app: &App, model: &mut Model, _update: Update) {}
@@ -20,11 +22,19 @@ fn update(_app: &App, model: &mut Model, _update: Update) {}
 fn view(app: &App, model: &Model, frame: Frame) {
     // Prepare to draw.
     let draw = app.draw();
+    // Dilluting t down so that draw calls are sufficiently spaced out.
+    let t = app.time * 0.1;
 
-    let t = app.time;
+    let (width, height) = app.main_window().inner_size_pixels();
 
-    let bezier_curve = BezierCurve::new(100.0, 100.0, 120.0, 50.0, 50.0, 200.0, 220.0, 100.0);
+    let noise = &model.noise;
+
+    // Instantiate a bezier curve.
+    let bezier_curve = BezierCurve::from_noise(noise, t, width as f32, height as f32);
+    //let bezier_curve = BezierCurve::new(100.0, 100.0, 120.0, 50.0, 50.0, 200.0, 220.0, 100.0);
+    // Get all samples from the curve.
     let samples = bezier_curve.samples();
+    // Map samples and obtain colors from each of them.
     let vertices = samples.iter().enumerate().map(|(index, point)| {
         // There will always be 100 points for a curve.
         let fract = index as f32 / 100.0;
@@ -38,7 +48,5 @@ fn view(app: &App, model: &Model, frame: Frame) {
     // Draw the polyline as a stroked path.
     draw.polyline().points_colored(vertices);
 
-    // Clear the background to purple.
-    draw.background().color(WHITESMOKE);
     draw.to_frame(app, &frame).unwrap();
 }
