@@ -2260,15 +2260,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74605f360ce573babfe43964cbe520294dcb081afbf8c108fc6e23036b4da2df"
 
 [[package]]
-name = "project"
-version = "0.1.0"
-dependencies = [
- "handtrack-rs",
- "lyon_geom 1.0.4",
- "nannou",
-]
-
-[[package]]
 name = "protobuf"
 version = "2.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2680,6 +2671,15 @@ dependencies = [
  "cfg-if 1.0.0",
  "cpufeatures",
  "digest",
+]
+
+[[package]]
+name = "shifting_colors"
+version = "0.1.0"
+dependencies = [
+ "handtrack-rs",
+ "lyon_geom 1.0.4",
+ "nannou",
 ]
 
 [[package]]
