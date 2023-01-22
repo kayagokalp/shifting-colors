@@ -8,7 +8,7 @@ struct Model {
 }
 
 fn main() {
-    nannou::app(model).update(update).simple_window(view).run();
+    nannou::app(model).update(update).simple_window(view).fullscreen().run();
 }
 
 fn model(_app: &App) -> Model {
@@ -17,7 +17,7 @@ fn model(_app: &App) -> Model {
     }
 }
 
-fn update(_app: &App, model: &mut Model, _update: Update) {}
+fn update(_app: &App, _model: &mut Model, _update: Update) {}
 
 fn view(app: &App, model: &Model, frame: Frame) {
     // Prepare to draw.
