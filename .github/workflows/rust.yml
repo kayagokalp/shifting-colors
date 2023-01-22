@@ -1,190 +1,33 @@
-name: CI
+name: Release
+
+permissions:
+  contents: write
 
 on:
   push:
-    branches:
-      - master
-  pull_request:
-  release:
-    types: [published]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
-env:
-  CARGO_TERM_COLOR: always
+    tags:
+      - v[0-9]+.*
 
 jobs:
-
-  cargo-build-workspace:
+  create-release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v3
+      - uses: taiki-e/create-gh-release-action@v1
         with:
-          profile: minimal
-          toolchain: stable
-      - uses: Swatinem/rust-cache@v1
-      - uses: actions-rs/cargo@v1
-        name: Cargo Build Workspace
-        with:
-          command: build
-          args: --locked --workspace --all-features --all-targets
-        env:
-          RUSTFLAGS: "-D warnings"
+          # (optional) Path to changelog.
+          changelog: CHANGELOG.md
+          # (required) GitHub token for creating GitHub Releases.
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-  cargo-clippy:
+  upload-assets:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v3
+      - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          toolchain: stable
-      - uses: Swatinem/rust-cache@v1
-      - name: Check Clippy Linter
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --all-features --all-targets -- -D warnings
-
-  cargo-fmt-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - name: Check Formatting
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-          
-  cargo-test-workspace:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-      - uses: Swatinem/rust-cache@v1
-      - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --locked
-
-  cargo-unused-deps-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          # `cargo-udeps` requires nightly to run
-          toolchain: nightly
-          default: true
-      - uses: Swatinem/rust-cache@v1
-      - name: Install cargo-udeps
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: --locked cargo-udeps
-      - name: Check Unused Deps
-        uses: actions-rs/cargo@v1
-        with:
-          command: udeps
-          args: --locked --all-targets
-  publish:
-    # Only do this job if publishing a release
-    needs:
-      [
-        cargo-build-workspace,
-        cargo-clippy,
-        cargo-fmt-check,
-        cargo-test-workspace,
-        cargo-unused-deps-check,
-      ]
-    if: github.event_name == 'release' && github.event.action == 'published'
-    runs-on: ubuntu-latest
-    
-  build-and-release-binaries:
-    name: Build and upload binaries to release
-    runs-on: ${{ matrix.job.os }}
-    if: github.event_name == 'release' && github.event.action == 'published'
-    needs: publish
-    strategy:
-      matrix:
-        job:
-          - os: ubuntu-20.04
-            platform: linux
-            target: x86_64-unknown-linux-gnu
-            arch: amd64
-            svm_target_platform: linux-amd64
-          - os: ubuntu-20.04
-            platform: linux
-            target: aarch64-unknown-linux-gnu
-            arch: arm64
-            svm_target_platform: linux-aarch64
-          - os: macos-latest
-            platform: darwin
-            target: x86_64-apple-darwin
-            arch: amd64
-            svm_target_platform: macosx-amd64
-          - os: macos-latest
-            platform: darwin
-            target: aarch64-apple-darwin
-            arch: arm64
-            svm_target_platform: macosx-aarch64
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
-      - name: Install toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          target: ${{ matrix.job.target }}
-          override: true
-
-      - uses: Swatinem/rust-cache@v1
-        with:
-          cache-on-failure: true
-          key: "${{ matrix.job.target }}"
-
-      - name: Use Cross
-        uses: baptiste0928/cargo-install@v1
-        with:
-          crate: cross
-          cache-key: "${{ matrix.job.target }}"
-
-      - name: Build binaries
-        run: |
-          cross build --profile=release --target ${{ matrix.job.target }} --bins
-
-      - name: Prep Assets
-        id: prep_assets
-        env:
-          PLATFORM_NAME: ${{ matrix.job.platform }}
-          TARGET: ${{ matrix.job.target }}
-          ARCH: ${{ matrix.job.arch }}
-        run: |
-          ZIP_FILE_NAME=shifting-colors-binaries-${{ env.PLATFORM_NAME }}_${{ env.ARCH }}.tar.gz
-          echo "ZIP_FILE_NAME=$ZIP_FILE_NAME" >> $GITHUB_ENV
-          mkdir -pv ./shifting-colors-binaries
-          for BINARY in shifting-colors; do
-            cp "target/${{ matrix.job.target }}/release/$BINARY" ./shifting-colors-binaries
-          done
-          tar -czvf $ZIP_FILE_NAME ./shifting-colors-binaries
-
-      - name: Archive binaries
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./${{ env.ZIP_FILE_NAME }}
-          asset_name: ${{ env.ZIP_FILE_NAME }}
-          asset_content_type: application/gzip
+          # (required) Comma-separated list of binary names (non-extension portion of filename) to build and upload.
+          # Note that glob pattern is not supported yet.
+          bin: ...
+          # (required) GitHub token for uploading assets to GitHub Releases.
+          token: ${{ secrets.GITHUB_TOKEN }}
